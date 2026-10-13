@@ -381,6 +381,15 @@ const S = {
    Every chorale is engraved ahead of time in three layouts at two widths
    (w: desktop/tablet, n: phone), ten chorales to a gzipped, base64 bundle. */
 const bundles = new Map();
+// Look in the expected folder first, then next to the page (some uploads flatten folders).
+async function fetchFirst(paths) {
+  let last;
+  for (const p of paths) {
+    try { const r = await fetch(p); if (r.ok) return r; last = new Error('HTTP ' + r.status + ' for ' + p); }
+    catch (e) { last = e; }
+  }
+  throw last;
+}
 const profile = () => (($('score').clientWidth || 800) < 600 ? 'n' : 'w');
 async function unpack(buf) {
   const b = new Uint8Array(buf);
@@ -393,8 +402,8 @@ async function unpack(buf) {
 function getBundle(n, prof) {
   const key = String(Math.floor((n - 1) / 10)).padStart(2, '0') + '-' + prof;
   if (!bundles.has(key)) {
-    const p = fetch(`scores/${key}.txt`)
-      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    const p = fetchFirst([`scores/${key}.txt`, `${key}.txt`])
+      .then((r) => r.text())
       .then((t) => { const bin = atob(t.trim()); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return unpack(u.buffer); })
       .then((arr) => new Map(arr.map((x) => [x.n, x])));
     p.catch(() => bundles.delete(key));
@@ -623,8 +632,7 @@ function loadSamples() {
   if (samplesPromise) return samplesPromise;
   const dec = new OfflineAudioContext(2, 1, 44100);
   samplesPromise = Promise.all(SAMPLE_NAMES.map(async ([name, midi]) => {
-    const r = await fetch(`samples/${name}.mp3`);
-    if (!r.ok) throw new Error('sample ' + name);
+    const r = await fetchFirst([`samples/${name}.mp3`, `${name}.mp3`]);
     samples.set(midi, await dec.decodeAudioData(await r.arrayBuffer()));
   })).catch((e) => { samplesPromise = null; throw e; });
   return samplesPromise;
