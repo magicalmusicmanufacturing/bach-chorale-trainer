@@ -1,0 +1,13 @@
+{
+  "name": "bach-chorale-studio-tools",
+  "private": true,
+  "type": "module",
+  "description": "Build script that pre-engraves the Bach chorales for Bach Chorale Studio",
+  "scripts": {
+    "build": "node build.mjs ../data/bach-371-chorales/kern .."
+  },
+  "dependencies": {
+    "linkedom": "0.18.5",
+    "verovio": "6.3.0"
+  }
+}

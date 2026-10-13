@@ -1,0 +1,11 @@
+Copyright 2026 Alexander Zhu. All rights reserved.
+
+This notice covers the application code in this repository (index.html and
+the files in tools/).
+
+Third-party materials included here keep their own licenses. In particular,
+the chorale data (chorales.json and the files in scores/) is derived from
+Craig Stuart Sapp's Bach 371 Chorales encodings and is distributed under the
+Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+license, and the piano samples in samples/ are distributed under the Creative
+Commons Attribution 3.0 license. See THIRD-PARTY-NOTICES.md for details.
