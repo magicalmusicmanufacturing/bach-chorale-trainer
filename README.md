@@ -1,4 +1,4 @@
-# Bach Chorale Studio
+# Bach Chorale Trainer
 
 A practice tool for the Bach four-part chorales. Students can mute, solo, or
 change the volume of each voice (soprano, alto, tenor, bass), set the tempo,
@@ -35,7 +35,7 @@ The app is a static site, but it loads its data with `fetch`, so it has to be
 served over HTTP rather than opened as a file:
 
 ```sh
-cd bach-chorale-studio
+cd bach-chorale-trainer
 python3 -m http.server 8000
 ```
 

@@ -1,4 +1,4 @@
-// Bach Chorale Studio data build.
+// Bach Chorale Trainer data build.
 // Reads the Humdrum encodings from craigsapp/bach-371-chorales and writes everything
 // the page loads: chorales.json (index), glyphs.json (shared music font glyphs) and
 // scores/NN-w.txt / NN-n.txt (pre-engraved scores + playback data, ten chorales per

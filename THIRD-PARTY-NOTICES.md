@@ -1,6 +1,6 @@
 # Third-party notices
 
-Bach Chorale Studio includes or is built from the following material.
+Bach Chorale Trainer includes or is built from the following material.
 
 ## Chorale encodings
 
