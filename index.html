@@ -630,7 +630,8 @@ SAMPLE_NAMES.push(['C6', 84]);
 let samplesPromise = null;
 function loadSamples() {
   if (samplesPromise) return samplesPromise;
-  const dec = new OfflineAudioContext(2, 1, 44100);
+  const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const dec = new Off(2, 1, 44100);
   samplesPromise = Promise.all(SAMPLE_NAMES.map(async ([name, midi]) => {
     const r = await fetchFirst([`samples/${name}.mp3`, `${name}.mp3`]);
     samples.set(midi, await dec.decodeAudioData(await r.arrayBuffer()));
@@ -638,7 +639,8 @@ function loadSamples() {
   return samplesPromise;
 }
 function ensureCtx() {
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  // Safari can leave the context 'suspended' or 'interrupted' (calls, Siri, screen lock)
+  if (ctx) { if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {}); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 3;
@@ -647,6 +649,44 @@ function ensureCtx() {
   partGains = PARTS.map(() => { const g = ctx.createGain(); g.connect(master); return g; });
   applyGains();
 }
+/* Mobile audio unlock. Runs on the first tap or key press.
+   - iOS mutes Web Audio when the ring/silent switch is on unless the page asks for the
+     'playback' audio session (Safari 16.4+), or, on older iOS, an <audio> element is playing.
+   - A one-sample buffer played inside the gesture wakes the context on older WebKit. */
+let unlocked = false;
+function silentWavUrl() {
+  const n = 4000, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  str(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+function unlockAudio() {
+  if (unlocked) { ensureCtx(); return; }
+  unlocked = true;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  ensureCtx();
+  try {
+    const b = ctx.createBuffer(1, 1, ctx.sampleRate);
+    const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0);
+  } catch {}
+  const iOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (iOS && !navigator.audioSession) {
+    try {
+      const a = document.createElement('audio');
+      a.setAttribute('x-webkit-airplay', 'deny'); a.setAttribute('playsinline', '');
+      a.loop = true; a.src = silentWavUrl();
+      a.play().catch(() => {});
+    } catch {}
+  }
+}
+['touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, unlockAudio, { capture: true, passive: true }));
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && ctx && ctx.state !== 'running') ctx.resume().catch(() => {});
+});
 function applyGains() {
   if (!ctx) return;
   partGains.forEach((g, p) => {
@@ -704,7 +744,7 @@ function audition(el, q) {
   const part = +vp.getAttribute('class').match(/\bvp(\d)\b/)[1];
   const ev = S.score && S.score.events.find((e) => e.part === part && e.q0 <= q + 1e-6 && e.q1 > q + 1e-6);
   if (!ev) return;
-  ensureCtx();
+  unlockAudio();
   if (S.instrument === 'piano' && !samples.size) loadSamples().catch(() => {});
   const t0 = ctx.currentTime + 0.02;
   const dur = Math.max(0.6, Math.min(1.6, (ev.q1 - q) * secPerQ()));
@@ -778,7 +818,8 @@ function curQ() {
 }
 async function play() {
   if (T.playing || !S.segs) return;
-  ensureCtx();
+  unlockAudio();
+  if (ctx.state !== 'running') { try { await ctx.resume(); } catch {} }
   if (S.instrument === 'piano' && !samples.size) {
     $('play').disabled = true;
     try { await loadSamples(); } catch { toast('Piano samples could not load, so the organ sound is used.'); }
